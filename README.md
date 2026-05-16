@@ -1,4 +1,4 @@
-# Proyecto 2 - DPS
+# Proyecto 2 - DPS - Mayo
 
 ## Integrantes del equipo
 
