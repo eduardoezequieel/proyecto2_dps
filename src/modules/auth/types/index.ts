@@ -1,43 +1,23 @@
-export type AuthStatus =
-  | 'idle'
-  | 'loading'
-  | 'authenticated'
-  | 'unauthenticated'
-  | 'error';
-
 export type AuthProvider = 'password' | 'google';
 
 export interface AuthUser {
   uid: string;
   email: string | null;
   displayName: string | null;
-  photoURL?: string | null;
-}
-
-export interface UserProfile {
-  uid: string;
-  email: string | null;
-  displayName: string | null;
-  photoURL?: string | null;
+  photoURL: string | null;
   provider: AuthProvider;
-  createdAt?: unknown;
-  updatedAt?: unknown;
 }
 
-export interface LoginCredentials {
-  email: string;
-  password: string;
+export interface UserProfile extends AuthUser {
+  createdAt: Date;
+  lastSignInAt: Date;
+  pushToken: string | null;
+  bio: string | null;
 }
 
-export interface RegisterCredentials {
-  displayName: string;
-  email: string;
-  password: string;
-}
+export type AuthStatus = 'idle' | 'loading' | 'ready' | 'authenticating';
 
-export interface AuthState {
-  status: AuthStatus;
-  user: AuthUser | null;
-  profile: UserProfile | null;
-  error: string | null;
+export interface AuthError {
+  code: string;
+  message: string;
 }
