@@ -1,5 +1,5 @@
 {
-  "name": "proyecto2_dps",
+  "name": "gestion-eventos-comunitarios",
   "version": "0.1.0",
   "main": "expo-router/entry",
   "private": true,
@@ -10,15 +10,14 @@
     "web": "expo start --web",
     "emulator": "powershell -ExecutionPolicy Bypass -File ./scripts/start-emulator.ps1",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint . --ext .ts,.tsx --max-warnings 0",
-    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\""
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "8.4.4",
-    "@react-native-picker/picker": "2.11.1",
     "expo": "~54.0.33",
     "expo-auth-session": "~7.0.11",
     "expo-constants": "~18.0.13",
@@ -43,12 +42,14 @@
     "zustand": "^5.0.2"
   },
   "devDependencies": {
+    "@eslint/js": "^9.17.0",
     "@types/react": "~19.1.0",
     "@typescript-eslint/eslint-plugin": "^8.18.0",
     "@typescript-eslint/parser": "^8.18.0",
     "eslint": "^9.17.0",
     "eslint-config-prettier": "^9.1.0",
     "prettier": "^3.4.2",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "typescript-eslint": "^8.59.4"
   }
 }
