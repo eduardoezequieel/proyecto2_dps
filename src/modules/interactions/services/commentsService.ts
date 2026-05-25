@@ -26,6 +26,7 @@ interface FirestoreCommentDoc {
   authorUid: string;
   authorName: string;
   text: string;
+  parentCommentId?: string | null;
   createdAt: Timestamp;
   editedAt: Timestamp | null;
 }
@@ -41,8 +42,9 @@ function mapCommentDoc(
     authorUid: raw.authorUid,
     authorName: raw.authorName,
     text: raw.text,
-    createdAt: raw.createdAt.toDate(),
-    editedAt: raw.editedAt ? raw.editedAt.toDate() : null,
+    parentCommentId: raw.parentCommentId ?? null,
+    createdAt: raw.createdAt?.toDate?.() ?? new Date(),
+    editedAt: raw.editedAt?.toDate?.() ?? null,
   };
 }
 
@@ -51,8 +53,10 @@ export interface AddCommentInput {
   authorUid: string;
   authorName: string;
   text: string;
+  parentCommentId: string | null;
 }
 
+/** Publica un comentario. Si `parentCommentId !== null`, se registra como respuesta a otro comentario. */
 export async function addComment(input: AddCommentInput): Promise<AsyncResult<string>> {
   try {
     const ref = await addDoc(
@@ -61,6 +65,7 @@ export async function addComment(input: AddCommentInput): Promise<AsyncResult<st
         authorUid: input.authorUid,
         authorName: input.authorName,
         text: input.text.trim(),
+        parentCommentId: input.parentCommentId,
         createdAt: serverTimestamp(),
         editedAt: null,
       },
@@ -78,6 +83,7 @@ export interface EditCommentInput {
   text: string;
 }
 
+/** Edita el texto de un comentario propio y registra la marca de edicion. */
 export async function editComment(input: EditCommentInput): Promise<AsyncResult<true>> {
   try {
     const ref = doc(
@@ -98,6 +104,7 @@ export async function editComment(input: EditCommentInput): Promise<AsyncResult<
   }
 }
 
+/** Elimina un comentario propio. No borra los hijos automaticamente; la UI los ignora si no hay padre. */
 export async function deleteComment(
   eventId: string,
   commentId: string,
@@ -113,6 +120,7 @@ export async function deleteComment(
   }
 }
 
+/** Suscribe a todos los comentarios de un evento ordenados por `createdAt` desc. */
 export function subscribeToEventComments(
   eventId: string,
   callback: (comments: EventComment[]) => void,

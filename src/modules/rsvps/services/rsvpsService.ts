@@ -1,31 +1,34 @@
 import {
-    collection,
-    collectionGroup,
-    doc,
-    getDoc,
-    onSnapshot,
-    orderBy,
-    query,
-    runTransaction,
-    serverTimestamp,
-    Timestamp,
-    where,
-    type DocumentData,
-    type QueryDocumentSnapshot,
-    type Unsubscribe
+  collection,
+  collectionGroup,
+  doc,
+  getDoc,
+  onSnapshot,
+  orderBy,
+  query,
+  runTransaction,
+  serverTimestamp,
+  Timestamp,
+  where,
+  type DocumentData,
+  type QueryDocumentSnapshot,
+  type Unsubscribe,
 } from 'firebase/firestore';
-import { fail, ok, type AsyncResult } from '../../../shared/types/result';
-import { handleError } from '../../../shared/utils/errorHandler';
 import { db } from '../../../shared/utils/firebase';
+import { handleError } from '../../../shared/utils/errorHandler';
+import { ok, fail, type AsyncResult } from '../../../shared/types/result';
 import type { Rsvp, RsvpStatus } from '../types';
 
 const SCOPE = 'rsvpsService';
 const EVENTS_COLLECTION = 'events';
 const RSVPS_SUBCOLLECTION = 'rsvps';
+const CANCELLED_EVENT_SENTINEL = '__rsvp_cancelled_event__';
+const EVENT_FULL_SENTINEL = '__rsvp_event_full__';
 
 interface FirestoreRsvpDoc {
   uid: string;
   userName: string;
+  eventTitle?: string;
   status: RsvpStatus;
   respondedAt: Timestamp;
   reminderNotificationId: string | null;
@@ -40,8 +43,9 @@ function mapRsvpDoc(
     uid: raw.uid,
     userName: raw.userName,
     eventId,
+    eventTitle: raw.eventTitle ?? 'Evento',
     status: raw.status,
-    respondedAt: raw.respondedAt.toDate(),
+    respondedAt: raw.respondedAt?.toDate?.() ?? new Date(),
     reminderNotificationId: raw.reminderNotificationId,
   };
 }
@@ -54,12 +58,18 @@ function extractEventIdFromPath(refPath: string): string {
 
 export interface SetRsvpInput {
   eventId: string;
+  eventTitle: string;
   uid: string;
   userName: string;
   status: RsvpStatus;
   reminderNotificationId: string | null;
 }
 
+/**
+ * Crea o actualiza el RSVP del usuario para un evento dentro de una transaccion.
+ * Mantiene `attendeesCount` consistente y rechaza `'going'` si la capacidad esta llena (`'event-full'`)
+ * o si el evento esta cancelado (`'cancelled-event'`).
+ */
 export async function setRsvp(input: SetRsvpInput): Promise<AsyncResult<true>> {
   try {
     const eventRef = doc(db, EVENTS_COLLECTION, input.eventId);
@@ -76,6 +86,10 @@ export async function setRsvp(input: SetRsvpInput): Promise<AsyncResult<true>> {
       if (!eventSnap.exists()) {
         throw new Error('Evento no encontrado');
       }
+      const eventData = eventSnap.data();
+      if (eventData?.status === 'cancelled') {
+        throw new Error(CANCELLED_EVENT_SENTINEL);
+      }
       const previousSnap = await transaction.get(rsvpRef);
       const previousStatus = previousSnap.exists()
         ? (previousSnap.data() as FirestoreRsvpDoc).status
@@ -83,9 +97,14 @@ export async function setRsvp(input: SetRsvpInput): Promise<AsyncResult<true>> {
 
       const wasGoing = previousStatus === 'going';
       const isGoing = input.status === 'going';
-      const eventData = eventSnap.data();
       const currentCount =
         typeof eventData?.attendeesCount === 'number' ? eventData.attendeesCount : 0;
+      const capacity =
+        typeof eventData?.capacity === 'number' ? eventData.capacity : null;
+
+      if (!wasGoing && isGoing && capacity !== null && currentCount >= capacity) {
+        throw new Error(EVENT_FULL_SENTINEL);
+      }
 
       let delta = 0;
       if (!wasGoing && isGoing) delta = 1;
@@ -94,6 +113,7 @@ export async function setRsvp(input: SetRsvpInput): Promise<AsyncResult<true>> {
       transaction.set(rsvpRef, {
         uid: input.uid,
         userName: input.userName,
+        eventTitle: input.eventTitle,
         status: input.status,
         respondedAt: serverTimestamp(),
         reminderNotificationId: input.reminderNotificationId,
@@ -108,11 +128,24 @@ export async function setRsvp(input: SetRsvpInput): Promise<AsyncResult<true>> {
 
     return ok(true);
   } catch (error) {
+    if (error instanceof Error && error.message === CANCELLED_EVENT_SENTINEL) {
+      return fail(
+        'Este evento fue cancelado. No se puede modificar la asistencia.',
+        'cancelled-event',
+      );
+    }
+    if (error instanceof Error && error.message === EVENT_FULL_SENTINEL) {
+      return fail(
+        'Evento lleno. No hay cupos disponibles para confirmar asistencia.',
+        'event-full',
+      );
+    }
     const handled = handleError(error, SCOPE);
     return fail(handled.userMessage, handled.code);
   }
 }
 
+/** Elimina el RSVP y, si era `'going'`, decrementa `attendeesCount` en la misma transaccion. */
 export async function removeRsvp(
   eventId: string,
   uid: string,
@@ -145,6 +178,7 @@ export async function removeRsvp(
   }
 }
 
+/** Lee el RSVP especifico del usuario para un evento, o `null` si no existe. */
 export async function getMyRsvp(eventId: string, uid: string): Promise<Rsvp | null> {
   try {
     const ref = doc(db, EVENTS_COLLECTION, eventId, RSVPS_SUBCOLLECTION, uid);
@@ -157,6 +191,7 @@ export async function getMyRsvp(eventId: string, uid: string): Promise<Rsvp | nu
   }
 }
 
+/** Suscribe a los RSVPs con `status === 'going'` de un evento, ordenados por `respondedAt` desc. */
 export function subscribeToEventAttendees(
   eventId: string,
   callback: (rsvps: Rsvp[]) => void,
@@ -177,6 +212,10 @@ export function subscribeToEventAttendees(
   );
 }
 
+/**
+ * Suscribe a todos los RSVPs del usuario en cualquier evento (collectionGroup query).
+ * Requiere el indice de `rsvps.uid` en `firestore.indexes.json`.
+ */
 export function subscribeToMyRsvps(
   uid: string,
   callback: (rsvps: Rsvp[]) => void,

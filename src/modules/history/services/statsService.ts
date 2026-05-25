@@ -22,7 +22,6 @@ const SCOPE = 'statsService';
 const EVENTS_COLLECTION = 'events';
 const RSVPS_SUBCOLLECTION = 'rsvps';
 const COMMENTS_SUBCOLLECTION = 'comments';
-const RATINGS_SUBCOLLECTION = 'ratings';
 
 function emptyCategoryMap(): Record<EventCategory, number> {
   const map: Record<EventCategory, number> = {
@@ -41,6 +40,12 @@ async function countQuery(q: Query): Promise<number> {
   return snapshot.data().count;
 }
 
+/**
+ * Calcula los agregados de participacion del usuario:
+ * eventos asistidos/organizados (sin doble conteo), total comentarios,
+ * rating promedio recibido en los eventos que organizó, y participacion por
+ * categoria. Usa collectionGroup queries sobre rsvps/comments.
+ */
 export async function getUserParticipationStats(
   uid: string,
 ): Promise<UserParticipationStats> {
@@ -49,7 +54,7 @@ export async function getUserParticipationStats(
     totalEventsAttended: 0,
     totalEventsCreated: 0,
     totalComments: 0,
-    averageRatingGiven: null,
+    averageRatingReceived: null,
     participationByCategory: emptyCategoryMap(),
   };
 
@@ -62,24 +67,42 @@ export async function getUserParticipationStats(
       where('status', '==', 'going'),
     );
     const attendedSnap = await getDocs(attendedQuery);
-    const attendedEventIds: string[] = [];
+    const rsvpEventIds: string[] = [];
     for (const docSnap of attendedSnap.docs) {
       const eventId = docSnap.ref.parent.parent?.id;
-      if (eventId) attendedEventIds.push(eventId);
+      if (eventId) rsvpEventIds.push(eventId);
     }
 
     const createdEvents: CommunityEvent[] = await getEventsByOrganizer(uid);
     stats.totalEventsCreated = createdEvents.length;
 
-    const pastAttended: CommunityEvent[] = [];
-    for (const eventId of attendedEventIds) {
+    // Dedupe via Map: si organicé un evento Y RSVPié, cuenta una sola vez.
+    const participated = new Map<string, CommunityEvent>();
+
+    for (const eventId of rsvpEventIds) {
       const event = await getEventById(eventId);
-      if (event && event.endsAt.getTime() < now.toMillis()) {
-        pastAttended.push(event);
-        stats.participationByCategory[event.category] += 1;
+      if (
+        event &&
+        event.status === 'scheduled' &&
+        event.endsAt.getTime() < now.toMillis()
+      ) {
+        participated.set(event.id, event);
       }
     }
-    stats.totalEventsAttended = pastAttended.length;
+
+    for (const created of createdEvents) {
+      if (
+        created.status === 'scheduled' &&
+        created.endsAt.getTime() < now.toMillis()
+      ) {
+        participated.set(created.id, created);
+      }
+    }
+
+    for (const event of participated.values()) {
+      stats.participationByCategory[event.category] += 1;
+    }
+    stats.totalEventsAttended = participated.size;
 
     const commentsQuery = query(
       collectionGroup(db, COMMENTS_SUBCOLLECTION),
@@ -87,23 +110,18 @@ export async function getUserParticipationStats(
     );
     stats.totalComments = await countQuery(commentsQuery);
 
-    const ratingsQuery = query(
-      collectionGroup(db, RATINGS_SUBCOLLECTION),
-      where('uid', '==', uid),
-    );
-    const ratingsSnap = await getDocs(ratingsQuery);
-    if (!ratingsSnap.empty) {
-      let total = 0;
-      let count = 0;
-      for (const ratingDoc of ratingsSnap.docs) {
-        const stars = ratingDoc.data()?.stars;
-        if (typeof stars === 'number') {
-          total += stars;
-          count += 1;
-        }
-      }
-      stats.averageRatingGiven = count > 0 ? total / count : null;
+    // Promedio ponderado de ratings recibidos en los eventos que organizó el usuario:
+    // pool todas las estrellas (averageRating * ratingsCount) y dividir por el total de
+    // calificaciones. Eventos sin ratings se ignoran. Usamos los contadores denormalizados
+    // del doc del evento para evitar volver a leer cada subcolección.
+    let totalStars = 0;
+    let totalRatings = 0;
+    for (const created of createdEvents) {
+      if (created.averageRating === null || created.ratingsCount <= 0) continue;
+      totalStars += created.averageRating * created.ratingsCount;
+      totalRatings += created.ratingsCount;
     }
+    stats.averageRatingReceived = totalRatings > 0 ? totalStars / totalRatings : null;
   } catch (error) {
     handleError(error, SCOPE);
   }
@@ -111,6 +129,7 @@ export async function getUserParticipationStats(
   return stats;
 }
 
+/** Lectura puntual de los agregados de un evento: confirmados, tal vez, comentarios, rating promedio. */
 export async function getEventEngagementStats(
   eventId: string,
 ): Promise<EventEngagementStats> {
@@ -143,6 +162,7 @@ export async function getEventEngagementStats(
   return stats;
 }
 
+/** Helper puro: lista canonica de categorias para selectors. */
 export function getAvailableCategories(): ReadonlyArray<EventCategory> {
   return EVENT_CATEGORIES;
 }
