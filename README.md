@@ -6,6 +6,8 @@ Aplicacion movil multiplataforma para que una comunidad local **publique,
 descubra y participe en eventos**: vecinos, grupos estudiantiles y juntas
 culturales pueden crear eventos, abrir RSVP, comentar, calificar y compartir.
 
+Figma: https://www.figma.com/design/8wZlQN4Q2cDHRtv5qQUF5y/Eventos-Comunitarios?node-id=0-1&t=tA8X6WlcuA4UyKH3-1
+
 ---
 
 ## Integrantes del equipo
