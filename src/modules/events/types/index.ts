@@ -22,7 +22,6 @@ export interface CommunityEvent {
   startsAt: Date;
   endsAt: Date;
   category: EventCategory;
-  coverImageUrl: string | null;
   capacity: number | null;
   createdBy: string;
   organizerName: string;

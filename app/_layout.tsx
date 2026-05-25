@@ -1,24 +1,58 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import React, { useEffect } from 'react';
+import { Slot, useRouter, useSegments } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ErrorBoundary, LoadingSpinner } from '../src/shared/components';
+import { useAuthStore } from '../src/modules/auth/stores/useAuthStore';
+import { colors } from '../src/shared/theme';
+import { View } from 'react-native';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
+WebBrowser.maybeCompleteAuthSession();
 
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+function RootGuard(): React.ReactElement {
+  const router = useRouter();
+  const segments = useSegments();
+  const user = useAuthStore((state) => state.user);
+  const status = useAuthStore((state) => state.status);
+  const init = useAuthStore((state) => state.init);
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  useEffect(() => {
+    init();
+  }, [init]);
 
+  useEffect(() => {
+    if (status !== 'ready' && status !== 'authenticating') return;
+    const firstSegment = segments[0];
+    const isOauthRedirect = firstSegment === 'oauthredirect';
+    if (isOauthRedirect) return;
+
+    const inAuthGroup = firstSegment === '(auth)';
+    if (!user && !inAuthGroup) {
+      router.replace('/(auth)/login');
+    } else if (user && inAuthGroup) {
+      router.replace('/(app)');
+    }
+  }, [user, status, segments, router]);
+
+  if (status === 'idle' || status === 'loading') {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <LoadingSpinner />
+      </View>
+    );
+  }
+
+  return <Slot />;
+}
+
+export default function RootLayout(): React.ReactElement {
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <StatusBar style="light" backgroundColor={colors.background} />
+      <ErrorBoundary>
+        <RootGuard />
+      </ErrorBoundary>
+    </SafeAreaProvider>
   );
 }

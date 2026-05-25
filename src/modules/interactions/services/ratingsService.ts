@@ -40,7 +40,7 @@ function mapRatingDoc(
     authorName: raw.authorName,
     stars: raw.stars,
     comment: raw.comment,
-    createdAt: raw.createdAt.toDate(),
+    createdAt: raw.createdAt?.toDate?.() ?? new Date(),
   };
 }
 
@@ -52,6 +52,11 @@ export interface SubmitRatingInput {
   comment: string | null;
 }
 
+/**
+ * Crea o actualiza la calificacion del usuario para un evento dentro de una transaccion,
+ * recalculando `averageRating` y `ratingsCount` denormalizados en el doc del evento.
+ * Las reglas requieren que el usuario tenga RSVP con `status === 'going'`.
+ */
 export async function submitRating(
   input: SubmitRatingInput,
 ): Promise<AsyncResult<true>> {
@@ -108,6 +113,7 @@ export async function submitRating(
   }
 }
 
+/** Suscribe a todas las calificaciones de un evento ordenadas por `createdAt` desc. */
 export function subscribeToEventRatings(
   eventId: string,
   callback: (ratings: EventRating[]) => void,
@@ -127,6 +133,7 @@ export function subscribeToEventRatings(
   );
 }
 
+/** Lectura puntual (sin suscripcion) de todas las calificaciones de un evento. */
 export async function getEventRatingsOnce(eventId: string): Promise<EventRating[]> {
   try {
     const snapshot = await getDocs(

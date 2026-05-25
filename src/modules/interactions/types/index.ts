@@ -4,6 +4,7 @@ export interface EventComment {
   authorUid: string;
   authorName: string;
   text: string;
+  parentCommentId: string | null;
   createdAt: Date;
   editedAt: Date | null;
 }

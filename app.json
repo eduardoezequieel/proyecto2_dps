@@ -1,48 +1,77 @@
 {
   "expo": {
-    "name": "proyecto2_dps",
-    "slug": "proyecto2_dps",
-    "version": "1.0.0",
+    "name": "Gestion de Eventos Comunitarios",
+    "slug": "gestion-eventos-comunitarios",
+    "version": "0.1.0",
+    "scheme": "gestion-eventos-comunitarios",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "proyecto2dps",
-    "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.geventos.app",
+      "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.778072239733-vam7j8prp2u9cs7esh7gtt1fk5kto7u4"
+            ]
+          }
+        ]
+      }
     },
     "android": {
+      "package": "com.geventos.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "NOTIFICATIONS",
+        "POST_NOTIFICATIONS",
+        "SCHEDULE_EXACT_ALARM",
+        "VIBRATE"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "category": ["DEFAULT", "BROWSABLE"],
+          "data": [
+            {
+              "scheme": "com.geventos.app"
+            }
+          ]
+        }
+      ]
     },
     "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
     },
     "plugins": [
       "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
-          "dark": {
-            "backgroundColor": "#000000"
-          }
-        }
-      ]
+      "expo-web-browser",
+      "expo-notifications",
+      "@react-native-community/datetimepicker"
     ],
-    "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
+    "extra": {
+      "firebaseApiKey": "AIzaSyCnfJSe_mVkWYJ2us3HIVgsJnBLhpQirNc",
+      "firebaseAuthDomain": "geventos-udb-2026.firebaseapp.com",
+      "firebaseProjectId": "geventos-udb-2026",
+      "firebaseStorageBucket": "geventos-udb-2026.firebasestorage.app",
+      "firebaseMessagingSenderId": "778072239733",
+      "firebaseAppId": "1:778072239733:web:5524d5084f2c8f7aea923c",
+      "googleWebClientId": "778072239733-qusku1k7fl0cdih8bdhk57jdq4u2rr3l.apps.googleusercontent.com",
+      "googleAndroidClientId": "778072239733-q1qnpdd5qh5j590mq7lncaukh7po8k0b.apps.googleusercontent.com",
+      "googleIosClientId": "778072239733-vam7j8prp2u9cs7esh7gtt1fk5kto7u4.apps.googleusercontent.com"
     }
   }
 }

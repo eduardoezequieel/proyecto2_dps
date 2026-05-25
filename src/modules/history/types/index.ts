@@ -5,7 +5,7 @@ export interface UserParticipationStats {
   totalEventsAttended: number;
   totalEventsCreated: number;
   totalComments: number;
-  averageRatingGiven: number | null;
+  averageRatingReceived: number | null;
   participationByCategory: Record<EventCategory, number>;
 }
 
